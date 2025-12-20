@@ -131,10 +131,9 @@ export const GameHub: React.FC<GameProps> = ({ currentUser }) => {
   };
 
   if (session.type === 'none') return (
-    <GlassPanel className="h-full flex flex-col items-center justify-center p-4 text-center" title="Gaming Lounge">
-      <div className="mb-8">
-        <h2 className="text-2xl font-black uppercase italic tracking-tighter">SELECT_GAME</h2>
-        <p className="text-[7px] opacity-30 uppercase tracking-[0.4em] mt-1 italic">Real-time sync enabled</p>
+    <GlassPanel className="h-full flex flex-col items-center justify-center p-4 text-center" title="Lobby">
+      <div className="mb-6">
+        <h2 className="text-xl font-black uppercase italic tracking-tighter">SELECT_GAME</h2>
       </div>
       <div className="grid grid-cols-2 gap-3 w-full max-w-xs">
         {[
@@ -143,9 +142,9 @@ export const GameHub: React.FC<GameProps> = ({ currentUser }) => {
           { icon: '▦', label: 'Gomoku', fn: initGomoku },
           { icon: '✊', label: 'R-P-S', fn: initRPS }
         ].map(g => (
-          <button key={g.label} onClick={g.fn} className={`${theme.buttonStyle} py-6 flex flex-col items-center gap-1.5 rounded-2xl active:scale-90 transition-all`}>
-            <span className="text-2xl">{g.icon}</span>
-            <span className="text-[8px] font-black uppercase tracking-wider">{g.label}</span>
+          <button key={g.label} onClick={g.fn} className={`${theme.buttonStyle} py-4 flex flex-col items-center gap-1 rounded-xl active:scale-90`}>
+            <span className="text-xl">{g.icon}</span>
+            <span className="text-[7px] font-black uppercase">{g.label}</span>
           </button>
         ))}
       </div>
@@ -156,90 +155,80 @@ export const GameHub: React.FC<GameProps> = ({ currentUser }) => {
     <GlassPanel className="h-full flex flex-col relative overflow-hidden" title={`${session.type.toUpperCase()} PROTOCOL`}>
       <div className="flex justify-between items-center p-2 border-b-2 border-current/10 bg-current/[0.02]">
         <div className="flex items-center gap-3">
-          <div className="flex flex-col items-center px-1">
-            <span className="text-[6px] font-black uppercase opacity-30">Me</span>
-            <span className="text-lg font-black leading-none">{session.sessionScores?.user_1 || 0}</span>
+          <div className="flex flex-col items-center">
+            <span className="text-[5px] font-black uppercase opacity-30">Me</span>
+            <span className="text-sm font-black">{session.sessionScores?.user_1 || 0}</span>
           </div>
-          <div className="text-[8px] font-black opacity-10 uppercase">vs</div>
-          <div className="flex flex-col items-center px-1">
-            <span className="text-[6px] font-black uppercase opacity-30">Peer</span>
-            <span className="text-lg font-black leading-none">{session.sessionScores?.user_2 || 0}</span>
+          <div className="flex flex-col items-center">
+            <span className="text-[5px] font-black uppercase opacity-30">Peer</span>
+            <span className="text-sm font-black">{session.sessionScores?.user_2 || 0}</span>
           </div>
         </div>
-        <div className={`px-3 py-1.5 border-2 ${theme.borderColor} rounded-full text-[7px] font-black uppercase flex items-center gap-1.5`}>
-          <div className={`w-1.5 h-1.5 rounded-full ${session.turn === currentUser.id ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+        <div className={`px-2 py-1 border border-current/20 rounded-full text-[6px] font-black uppercase flex items-center gap-1.5`}>
+          <div className={`w-1 h-1 rounded-full ${session.turn === currentUser.id ? 'bg-green-500' : 'bg-red-500'}`}></div>
           {session.turn === currentUser.id ? 'My Turn' : 'Wait'}
         </div>
-        <button onClick={backToLobby} className="w-8 h-8 flex items-center justify-center text-xl hover:bg-current/10 rounded-full transition-all">×</button>
+        <button onClick={backToLobby} className="w-6 h-6 flex items-center justify-center text-xl">×</button>
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-2 min-h-0 overflow-hidden bg-current/[0.01]">
+      <div className="flex-1 flex items-center justify-center p-1 min-h-0 overflow-hidden">
         {session.type === 'tictactoe' && (
-          <div className="grid grid-cols-3 gap-2 w-full max-w-[280px] aspect-square">
+          <div className="grid grid-cols-3 gap-1.5 w-full max-w-[240px] aspect-square">
             {session.board?.map((cell, i) => (
-              <button key={i} onClick={() => handleTTTClick(i)} className={`aspect-square border-2 ${theme.borderColor} ${theme.cardBg} flex items-center justify-center text-3xl font-black rounded-xl active:bg-current/5 transition-all`}>
+              <button key={i} onClick={() => handleTTTClick(i)} className={`aspect-square border-2 ${theme.borderColor} ${theme.cardBg} flex items-center justify-center text-2xl font-black rounded-lg active:scale-95`}>
                 <span className={cell === 'X' ? 'text-red-500' : 'text-blue-500'}>{cell}</span>
               </button>
             ))}
           </div>
         )}
         {session.type === 'memory' && (
-          <div className="grid grid-cols-4 gap-1.5 w-full max-w-[min(100%,320px)] aspect-square">
+          <div className="grid grid-cols-4 gap-1 w-full max-w-[min(100%,260px)] aspect-square">
             {session.memoryCards?.map((card, i) => (
-              <button key={i} onClick={() => handleMemoryClick(i)} className={`aspect-square border-2 ${theme.borderColor} flex items-center justify-center text-2xl rounded-xl transition-all shadow-sm ${card.isFlipped || card.isMatched ? 'bg-white text-black' : 'bg-black/40 text-transparent'}`}>
+              <button key={i} onClick={() => handleMemoryClick(i)} className={`aspect-square border border-current/20 flex items-center justify-center text-xl rounded-lg transition-all ${card.isFlipped || card.isMatched ? 'bg-white text-black' : 'bg-black/20'}`}>
                 {card.isFlipped || card.isMatched ? card.content : ''}
               </button>
             ))}
           </div>
         )}
         {session.type === 'gomoku' && (
-          <div className="grid grid-cols-10 gap-0 w-full max-w-[min(100%,340px)] aspect-square border-2 border-black/40 bg-zinc-300">
+          <div className="grid grid-cols-10 gap-0 w-full max-w-[min(100%,300px)] aspect-square border border-black/40 bg-zinc-300">
             {session.board?.map((cell, i) => (
-              <button key={i} onClick={() => handleGomokuClick(i)} className={`aspect-square border border-black/10 flex items-center justify-center ${cell ? (cell === 'B' ? 'bg-black text-white' : 'bg-white text-black') : 'active:bg-black/10'}`}>
-                {cell && <div className="w-[80%] h-[80%] rounded-full shadow-sm bg-current"></div>}
+              <button key={i} onClick={() => handleGomokuClick(i)} className={`aspect-square border border-black/5 flex items-center justify-center`}>
+                {cell && <div className={`w-[80%] h-[80%] rounded-full ${cell === 'B' ? 'bg-black' : 'bg-white shadow'}`}></div>}
               </button>
             ))}
           </div>
         )}
         {session.type === 'rps' && (
-          <div className="flex flex-col items-center gap-6 w-full max-w-sm">
+          <div className="flex flex-col items-center gap-4">
             {session.status === 'playing' ? (
-              <div className="flex gap-3">
+              <div className="flex gap-2">
                 {(['rock', 'paper', 'scissors'] as const).map(c => (
-                  <button key={c} onClick={() => handleRPS(c)} className={`${theme.buttonStyle} w-16 h-16 md:w-20 md:h-20 flex flex-col items-center justify-center gap-1 rounded-2xl border-2 ${session.rpsChoices?.[currentUser.id] === c ? 'bg-green-500 text-white' : ''} active:scale-90 transition-transform`}>
-                    <span className="text-3xl">{RPS_MAP[c]}</span>
-                    <span className="text-[7px] font-black uppercase">{c}</span>
+                  <button key={c} onClick={() => handleRPS(c)} className={`${theme.buttonStyle} w-14 h-14 flex flex-col items-center justify-center rounded-xl border ${session.rpsChoices?.[currentUser.id] === c ? 'bg-green-500 text-white' : ''} active:scale-90`}>
+                    <span className="text-2xl">{RPS_MAP[c]}</span>
+                    <span className="text-[6px] font-black uppercase">{c}</span>
                   </button>
                 ))}
               </div>
             ) : (
-              <div className="flex items-center gap-6 text-5xl animate-in zoom-in duration-500">
-                <div className="flex flex-col items-center gap-3">
-                  <span className="bg-white p-4 rounded-3xl border-4 border-black shadow-xl">{RPS_MAP[session.rpsChoices?.user_1 as keyof typeof RPS_MAP]}</span>
-                  <span className="text-[8px] font-black opacity-30 uppercase">ME</span>
-                </div>
-                <div className="text-xl font-black italic opacity-10">VS</div>
-                <div className="flex flex-col items-center gap-3">
-                  <span className="bg-white p-4 rounded-3xl border-4 border-black shadow-xl">{RPS_MAP[session.rpsChoices?.user_2 as keyof typeof RPS_MAP]}</span>
-                  <span className="text-[8px] font-black opacity-30 uppercase">PEER</span>
-                </div>
+              <div className="flex items-center gap-4 text-4xl">
+                <div className="bg-white p-3 rounded-2xl border-2 border-black">{RPS_MAP[session.rpsChoices?.user_1 as keyof typeof RPS_MAP]}</div>
+                <div className="text-sm font-black italic opacity-20">VS</div>
+                <div className="bg-white p-3 rounded-2xl border-2 border-black">{RPS_MAP[session.rpsChoices?.user_2 as keyof typeof RPS_MAP]}</div>
               </div>
-            )}
-            {session.status === 'playing' && session.rpsChoices?.[currentUser.id] && (
-              <div className="text-[7px] font-black uppercase tracking-[0.4em] animate-pulse opacity-40">Awaiting Signal...</div>
             )}
           </div>
         )}
       </div>
 
       {session.status === 'ended' && (
-        <div className="absolute inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center p-6 text-center backdrop-blur-3xl animate-in fade-in duration-300">
-          <h1 className="text-5xl md:text-8xl font-black text-white italic mb-10 uppercase tracking-tighter">
+        <div className="absolute inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center p-6 text-center backdrop-blur-xl">
+          <h1 className="text-4xl font-black text-white italic mb-6 uppercase tracking-tighter">
             {session.winner === 'draw' ? 'DRAW' : (session.winner === currentUser.id ? 'VICTORY' : 'DEFEAT')}
           </h1>
-          <div className="flex flex-col md:flex-row gap-3 w-full max-w-[200px] md:max-w-none">
-            <button onClick={playAgain} className="bg-white text-black py-4 md:px-12 font-black uppercase text-[10px] tracking-[0.2em] rounded-2xl active:scale-95 transition-all shadow-xl">Re-Initiate</button>
-            <button onClick={backToLobby} className="border-2 border-white/20 text-white py-4 md:px-12 font-black uppercase text-[10px] tracking-[0.2em] rounded-2xl hover:bg-white/5 transition-all">Lobby</button>
+          <div className="flex flex-col gap-3 w-40">
+            <button onClick={playAgain} className="bg-white text-black py-3 rounded-xl font-black uppercase text-[9px]">Re-Initiate</button>
+            <button onClick={backToLobby} className="border border-white/20 text-white py-3 rounded-xl font-black uppercase text-[9px]">Lobby</button>
           </div>
         </div>
       )}
