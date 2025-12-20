@@ -9,11 +9,11 @@ const getSupabaseConfig = () => {
 
     const envUrl = (metaEnv.VITE_SUPABASE_URL || procEnv.VITE_SUPABASE_URL || procEnv.SUPABASE_URL || '').trim();
     const envKey = (metaEnv.VITE_SUPABASE_ANON_KEY || metaEnv.VITE_SUPABASE_KEY || procEnv.VITE_SUPABASE_KEY || procEnv.SUPABASE_ANON_KEY || '').trim();
-    
-    return { 
-      url: envUrl, 
-      key: envKey, 
-      isDetected: envUrl.startsWith('http') && envKey.length > 20 
+
+    return {
+      url: envUrl,
+      key: envKey,
+      isDetected: envUrl.startsWith('http') && envKey.length > 20
     };
   } catch (e) {
     return { url: '', key: '', isDetected: false };
@@ -30,7 +30,7 @@ class SyncService {
   private currentRoomCode: string = '';
   private isPeerOnline: boolean = false;
   private isConnected: boolean = false;
-  
+
   private state = {
     messages: [] as Message[],
     notes: [] as Note[],
@@ -67,9 +67,9 @@ class SyncService {
       const urlParams = new URLSearchParams(window.location.search);
       const urlRoom = urlParams.get('room');
       const savedRoom = localStorage.getItem('duo_last_room');
-      
+
       this.currentRoomCode = (urlRoom || savedRoom || tempCode).toUpperCase();
-      
+
       localStorage.setItem('duo_last_room', this.currentRoomCode);
       if (!urlRoom) {
         const newUrl = `${window.location.origin}${window.location.pathname}?room=${this.currentRoomCode}`;
@@ -93,9 +93,9 @@ class SyncService {
       try {
         this.supabase = createClient(config.url, config.key);
         this.joinSupabaseRoom(this.currentRoomCode);
-      } catch (e) { 
-        this.isConnected = false; 
-        this.emitPresence(); 
+      } catch (e) {
+        this.isConnected = false;
+        this.emitPresence();
       }
     } else {
       // Graceful handling when keys are not yet provided in Vercel
@@ -143,12 +143,15 @@ class SyncService {
     if (type === 'DRAW') { this.state.drawing.push(payload); this.notify('draw_line', payload); }
     if (type === 'CLR') { this.state.drawing = []; this.notify('clear_canvas', null); }
     if (type === 'PLST') { this.state.playlist = payload; this.notify('playlist_update', payload); }
+    // Fix: Add handling for THEME and TYPING events in handleIncoming to trigger corresponding subscriptions.
+    if (type === 'THEME') this.notify('theme_change', payload);
+    if (type === 'TYPING') this.notify('typing_status', payload);
   }
 
   private broadcast(type: string, payload: any) {
     const envelope = { type, payload, senderId: this.myUserId, ts: Date.now() };
     if (this.channel && this.isConnected) {
-      this.channel.send({ type: 'broadcast', event: 'sync', payload: envelope }).catch(() => {});
+      this.channel.send({ type: 'broadcast', event: 'sync', payload: envelope }).catch(() => { });
     }
     if (this.localBus) {
       this.localBus.postMessage(envelope);
@@ -175,7 +178,7 @@ class SyncService {
 
   private notify(event: string, payload: any) {
     if (this.listeners[event]) this.listeners[event].forEach(cb => {
-      try { cb(payload); } catch (e) {}
+      try { cb(payload); } catch (e) { }
     });
   }
 
@@ -187,7 +190,7 @@ class SyncService {
 
   private emitPresence() {
     this.statusListeners.forEach(cb => {
-      try { cb(this.isPeerOnline, this.currentRoomCode, this.isConnected); } catch (e) {}
+      try { cb(this.isPeerOnline, this.currentRoomCode, this.isConnected); } catch (e) { }
     });
   }
 

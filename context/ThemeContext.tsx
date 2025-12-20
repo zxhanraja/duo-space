@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { ThemeConfig, ThemeId } from '../types';
 import { THEMES } from '../constants';
@@ -11,7 +12,16 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [themeId, setThemeId] = useState<ThemeId>('light');
+  // Initialize with 'dark' by default to match the black login screen for a seamless transition.
+  // We check localStorage immediately for a persistent user preference.
+  const [themeId, setThemeId] = useState<ThemeId>(() => {
+    try {
+      const saved = localStorage.getItem('duo_theme_pref');
+      return (saved && THEMES[saved as ThemeId]) ? (saved as ThemeId) : 'dark';
+    } catch (e) {
+      return 'dark';
+    }
+  });
 
   useEffect(() => {
     // Listen for theme changes from other user/tab
@@ -25,7 +35,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const changeTheme = (id: ThemeId) => {
     setThemeId(id);
-    // Fixed: Property 'changeTheme' does not exist on type 'SyncService'. Using 'pushTheme' instead.
+    localStorage.setItem('duo_theme_pref', id);
     syncService.pushTheme(id);
   };
 

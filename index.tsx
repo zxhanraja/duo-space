@@ -17,7 +17,7 @@ interface ErrorBoundaryState {
  * Extends React.Component to provide error-catching capabilities.
  */
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Use property initializer for state to simplify component structure
+  // Fix: Use property initializer for state to resolve "Property 'state' does not exist" errors and simplify component structure
   state: ErrorBoundaryState = {
     hasError: false,
     error: null
@@ -46,26 +46,26 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   };
 
   render() {
+    // Fix: Access state and props from this, ensuring they are inferred correctly from the base React.Component
     const { hasError, error } = this.state;
-    // Explicitly destructure children from props to resolve typing issues in certain environments
     const { children } = this.props;
 
     if (hasError) {
       return (
-        <div style={{ 
-          height: '100dvh', display: 'flex', flexDirection: 'column', 
-          alignItems: 'center', justifyContent: 'center', backgroundColor: '#060606', 
-          color: '#fff', fontFamily: 'monospace', padding: '2rem', textAlign: 'center' 
+        <div style={{
+          height: '100dvh', display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', backgroundColor: '#060606',
+          color: '#fff', fontFamily: 'monospace', padding: '2rem', textAlign: 'center'
         }}>
           <div style={{ fontSize: '3rem', marginBottom: '2rem', animation: 'pulse 2s infinite' }}>🛸</div>
           <h1 style={{ fontSize: '1.2rem', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.5em', marginBottom: '1rem', color: '#ff3333' }}>System Malfunction</h1>
           <p style={{ opacity: 0.4, fontSize: '0.7rem', marginBottom: '2.5rem', maxWidth: '300px', lineHeight: '1.6' }}>
             Satellite link severed or local buffer corrupted. {error?.message}
           </p>
-          <button 
+          <button
             onClick={this.handleReset}
-            style={{ 
-              background: 'transparent', color: '#fff', border: '2px solid #fff', padding: '1.2rem 2.5rem', 
+            style={{
+              background: 'transparent', color: '#fff', border: '2px solid #fff', padding: '1.2rem 2.5rem',
               fontSize: '0.7rem', fontWeight: '900', cursor: 'pointer',
               textTransform: 'uppercase', letterSpacing: '0.3em', borderRadius: '2rem',
               transition: 'all 0.3s'
