@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { USERS, THEMES } from './constants';
 import { Chat } from './features/Chat';
@@ -7,7 +7,7 @@ import { MusicPlayer } from './features/Music';
 import { NotesBoard } from './features/Notes';
 import { GameHub } from './features/Games';
 import { CanvasBoard } from './features/Canvas';
-import { User, ThemeId } from './types';
+import { User, ThemeId, Song, PlayerState } from './types';
 import { syncService } from './services/syncService';
 
 const DuoSpaceShell: React.FC<{ user: User }> = ({ user }) => {
@@ -20,8 +20,11 @@ const DuoSpaceShell: React.FC<{ user: User }> = ({ user }) => {
   const [isShaking, setIsShaking] = useState(false);
   const [joinInput, setJoinInput] = useState('');
 
+  // Persistent Audio State for the Iframe
+  const [activeSong, setActiveSong] = useState<Song | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
   useLayoutEffect(() => {
-    // Injecting CSS variables to ensure the background updates smoothly without remounting the tree
     document.body.style.setProperty('--theme-bg', theme.id === 'light' ? '#f4f4f5' : theme.id === 'soft' ? '#f0f4f0' : '#000000');
     document.body.style.setProperty('--theme-text', theme.id === 'light' ? '#000000' : '#ffffff');
   }, [theme.id]);
@@ -37,8 +40,39 @@ const DuoSpaceShell: React.FC<{ user: User }> = ({ user }) => {
       if (window.navigator.vibrate) window.navigator.vibrate([200, 100, 200]);
       setTimeout(() => setIsShaking(false), 800);
     });
-    return () => { unsubStatus(); unsubNudge(); };
-  }, []);
+
+    // Persistent Audio Logic: Keep the iframe in sync regardless of which view or theme is active
+    const handlePlayerUpdate = (p: PlayerState) => {
+      const state = syncService.getState();
+      const song = state.playlist.find(s => s.id === p.currentSongId);
+      if (song && song.id !== activeSong?.id) {
+        setActiveSong(song);
+      }
+
+      // Send commands to iframe if it exists
+      if (iframeRef.current?.contentWindow) {
+        const func = p.isPlaying ? 'playVideo' : 'pauseVideo';
+        iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args: [] }), '*');
+        if (p.isPlaying) {
+          iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [p.progress, true] }), '*');
+        }
+      }
+    };
+
+    const unsubPlayer = syncService.subscribe('player_update', handlePlayerUpdate);
+    const unsubFull = syncService.subscribe('full_sync', (state: any) => {
+      if (state.player) handlePlayerUpdate(state.player);
+    });
+
+    // Initial load for audio
+    const initialState = syncService.getState();
+    if (initialState.player?.currentSongId) {
+      const song = initialState.playlist.find(s => s.id === initialState.player.currentSongId);
+      if (song) setActiveSong(song);
+    }
+
+    return () => { unsubStatus(); unsubNudge(); unsubPlayer(); unsubFull(); };
+  }, [activeSong?.id]);
 
   const handleJoin = () => {
     if (!joinInput.trim()) return;
@@ -53,18 +87,31 @@ const DuoSpaceShell: React.FC<{ user: User }> = ({ user }) => {
     setTheme(themeIds[nextIndex]);
   };
 
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+
   return (
-    // CRITICAL: Removed key={theme.id} to persist the MusicPlayer iframe during theme swaps
     <div className={`fixed inset-0 w-full h-[100dvh] flex flex-col ${theme.bgGradient} ${theme.textColor} overflow-hidden font-mono ${isShaking ? 'animate-shake' : ''} transition-colors duration-300`}>
-      {/* HEADER */}
-      <header className={`shrink-0 px-4 py-1.5 border-b-2 ${theme.borderColor} flex items-center justify-between z-[100] bg-inherit/95 backdrop-blur-xl`}>
+
+      {/* PERSISTENT HIDDEN AUDIO ENGINE - Placed at root to survive all UI changes */}
+      <div className="fixed -top-[1000px] -left-[1000px] w-1 h-1 pointer-events-none overflow-hidden">
+        {activeSong && (
+          <iframe
+            ref={iframeRef}
+            key={activeSong.id}
+            src={`https://www.youtube.com/embed/${activeSong.url}?enablejsapi=1&autoplay=1&controls=0&mute=0&rel=0&origin=${encodeURIComponent(currentOrigin)}&widget_referrer=${encodeURIComponent(currentOrigin)}`}
+            allow="autoplay; encrypted-media"
+          />
+        )}
+      </div>
+
+      <header className={`shrink-0 px-4 py-1.5 border-b-2 ${theme.borderColor} flex items-center justify-between z-[100] bg-inherit/95 backdrop-blur-xl shadow-sm`}>
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.location.reload()}>
           <div className="relative shrink-0">
             <img src={user.avatar} className={`w-6 h-6 rounded-full border border-current/20 active:scale-90`} alt="U" />
             <div className={`absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 rounded-full border border-white ${isPeerActive ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-zinc-600'}`}></div>
           </div>
           <div className="hidden sm:flex flex-col">
-            <h1 className="text-[7px] font-black uppercase italic leading-none"> {isConnected ? '📡 LINK' : '📶 MESH'} </h1>
+            <h1 className="text-[7px] font-black uppercase italic leading-none tracking-tighter"> {isConnected ? '📡 LINK' : '📶 MESH'} </h1>
           </div>
         </div>
 
@@ -75,7 +122,6 @@ const DuoSpaceShell: React.FC<{ user: User }> = ({ user }) => {
         </div>
       </header>
 
-      {/* CORE WRAPPER - Ratio: Nav(5%) | Main(80%) | Music(15%) */}
       <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden relative">
         {/* NAV (5%) */}
         <nav className={`shrink-0 md:w-14 flex md:flex-col items-center justify-around md:justify-center py-1 md:py-0 gap-3 border-t-2 md:border-t-0 md:border-r-2 ${theme.borderColor} bg-current/[0.01] backdrop-blur-xl z-50 order-3 md:order-1`}>
@@ -111,7 +157,6 @@ const DuoSpaceShell: React.FC<{ user: User }> = ({ user }) => {
         </main>
       </div>
 
-      {/* MODAL */}
       {showPairDialog && (
         <div className="fixed inset-0 z-[200] bg-black/95 flex items-center justify-center p-4">
           <div className="relative w-full max-w-[280px] p-6 border-2 border-white/90 bg-black text-white rounded-3xl">
@@ -161,5 +206,4 @@ const App: React.FC = () => {
   );
 };
 
-export default App;
 export default App;
