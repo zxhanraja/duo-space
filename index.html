@@ -70,21 +70,27 @@
       margin: 0;
       overflow: hidden;
       background: black;
+      -webkit-tap-highlight-color: transparent;
     }
 
-    .shake-effect {
-      animation: shake 0.5s infinite;
-      filter: hue-rotate(90deg);
+    /* Optimized Smooth Theme Engine */
+    .theme-transition-base {
+      transition: background 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+        color 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+        border-color 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      will-change: background, color, border-color;
     }
 
-    /* Smooth Theme Transition Engine */
-    #root * {
-      transition: background-color 0.7s ease-in-out,
-        border-color 0.7s ease-in-out,
-        color 0.7s ease-in-out,
-        box-shadow 0.7s ease-in-out,
-        background-image 0.7s ease-in-out,
-        opacity 0.4s ease-in-out;
+    /* Apply to main structural components instead of wildcard '*' */
+    #root>div,
+    header,
+    nav,
+    main,
+    aside,
+    .glass-panel-container {
+      transition: background 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+        color 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+        border-color 0.6s cubic-bezier(0.4, 0, 0.2, 1);
     }
   </style>
   <script type="importmap">
