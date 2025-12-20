@@ -22,6 +22,9 @@ export const GameHub: React.FC<GameProps> = ({ currentUser }) => {
     sessionScores: { user_1: 0, user_2: 0 }
   });
 
+  // Track who started the current round for future equality
+  const [lastStarter, setLastStarter] = useState<string>('user_1');
+
   useEffect(() => {
     const startState = syncService.getState().game;
     if (startState) setSession(startState);
@@ -39,63 +42,81 @@ export const GameHub: React.FC<GameProps> = ({ currentUser }) => {
   };
 
   const updateGlobalScore = (winnerId: string | null) => {
-    if (!winnerId || winnerId === 'draw') return session.sessionScores;
-    const scores = { ...session.sessionScores } || { user_1: 0, user_2: 0 };
-    scores[winnerId] = (scores[winnerId] || 0) + 1;
+    const scores = { ...(session.sessionScores || { user_1: 0, user_2: 0 }) };
+    if (winnerId && winnerId !== 'draw') {
+      scores[winnerId] = (scores[winnerId] || 0) + 1;
+    }
     return scores;
   };
 
   const backToLobby = () => syncUpdate({ type: 'none', status: 'lobby', winner: null, board: [], rpsChoices: {} });
 
   const playAgain = () => {
-    if (session.type === 'tictactoe') initTicTacToe();
-    else if (session.type === 'memory') initMemory();
-    else if (session.type === 'gomoku') initGomoku();
+    // Equality Logic: Whoever DIDN'T start last time gets to start now
+    const nextFirstTurn = lastStarter === 'user_1' ? 'user_2' : 'user_1';
+    setLastStarter(nextFirstTurn);
+
+    if (session.type === 'tictactoe') initTicTacToe(nextFirstTurn);
+    else if (session.type === 'memory') initMemory(nextFirstTurn);
+    else if (session.type === 'gomoku') initGomoku(nextFirstTurn);
     else if (session.type === 'rps') initRPS();
   };
 
-  const initTicTacToe = () => syncUpdate({ type: 'tictactoe', status: 'playing', board: Array(9).fill(null), turn: 'user_1', winner: null });
-  const initMemory = () => {
+  const initTicTacToe = (t: string) => syncUpdate({ type: 'tictactoe', status: 'playing', board: Array(9).fill(null), turn: t, winner: null });
+  const initMemory = (t: string) => {
     const cards = [...MEMORY_SYMBOLS].slice(0, 8);
     const shuffled = [...cards, ...cards].sort(() => Math.random() - 0.5);
-    syncUpdate({ type: 'memory', status: 'playing', memoryCards: shuffled.map((c, i) => ({ id: i, content: c, isFlipped: false, isMatched: false })), memoryScores: { user_1: 0, user_2: 0 }, memoryFlippedIndices: [], turn: 'user_1', winner: null });
+    syncUpdate({
+      type: 'memory', status: 'playing', turn: t, winner: null,
+      memoryCards: shuffled.map((c, i) => ({ id: i, content: c, isFlipped: false, isMatched: false })),
+      memoryScores: { user_1: 0, user_2: 0 },
+      memoryFlippedIndices: []
+    });
   };
-  const initGomoku = () => syncUpdate({ type: 'gomoku', status: 'playing', board: Array(100).fill(null), turn: 'user_1', winner: null });
+  const initGomoku = (t: string) => syncUpdate({ type: 'gomoku', status: 'playing', board: Array(100).fill(null), turn: t, winner: null });
   const initRPS = () => syncUpdate({ type: 'rps', status: 'playing', rpsChoices: { user_1: null, user_2: null }, winner: null });
 
+  // HANDLERS
   const handleTTTClick = (i: number) => {
     if (session.status !== 'playing' || session.turn !== currentUser.id || session.board?.[i]) return;
     const newBoard = [...(session.board || [])];
     newBoard[i] = currentUser.id === 'user_1' ? 'X' : 'O';
+
     const winLines = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
     let winnerId = null;
     for (let [a, b, c] of winLines) if (newBoard[a] && newBoard[a] === newBoard[b] && newBoard[a] === newBoard[c]) winnerId = newBoard[a] === 'X' ? 'user_1' : 'user_2';
     if (!winnerId && newBoard.every(c => c)) winnerId = 'draw';
-    syncUpdate({ board: newBoard, turn: currentUser.id === 'user_1' ? 'user_2' : 'user_1', winner: winnerId, status: winnerId ? 'ended' : 'playing', sessionScores: updateGlobalScore(winnerId) });
+
+    syncUpdate({ board: newBoard, turn: currentUser.id === 'user_1' ? 'user_2' : 'user_1', winner: winnerId, status: winnerId ? 'ended' : 'playing', sessionScores: winnerId ? updateGlobalScore(winnerId) : session.sessionScores });
   };
 
   const handleMemoryClick = (idx: number) => {
     if (session.status !== 'playing' || session.turn !== currentUser.id) return;
     const cards = [...(session.memoryCards || [])];
     const flipped = [...(session.memoryFlippedIndices || [])];
+
     if (cards[idx].isFlipped || cards[idx].isMatched || flipped.length >= 2) return;
-    cards[idx].isFlipped = true; flipped.push(idx);
-    if (flipped.length === 2) {
-      const [f, s] = flipped;
+
+    cards[idx].isFlipped = true;
+    const nextFlipped = [...flipped, idx];
+
+    if (nextFlipped.length === 2) {
+      const [f, s] = nextFlipped;
       if (cards[f].content === cards[s].content) {
         cards[f].isMatched = true; cards[s].isMatched = true;
-        const mScores = { ...session.memoryScores }; mScores[currentUser.id] = (mScores[currentUser.id] || 0) + 1;
+        const mScores = { ...session.memoryScores };
+        mScores[currentUser.id] = (mScores[currentUser.id] || 0) + 1;
         const allMatched = cards.every(c => c.isMatched);
         let winner = allMatched ? (mScores.user_1 > mScores.user_2 ? 'user_1' : (mScores.user_2 > mScores.user_1 ? 'user_2' : 'draw')) : null;
-        syncUpdate({ memoryCards: cards, memoryFlippedIndices: [], memoryScores: mScores, winner, status: winner ? 'ended' : 'playing', sessionScores: updateGlobalScore(winner) });
+        syncUpdate({ memoryCards: cards, memoryFlippedIndices: [], memoryScores: mScores, winner, status: winner ? 'ended' : 'playing', sessionScores: winner ? updateGlobalScore(winner) : session.sessionScores });
       } else {
-        syncUpdate({ memoryCards: cards, memoryFlippedIndices: flipped });
+        syncUpdate({ memoryCards: cards, memoryFlippedIndices: nextFlipped });
         setTimeout(() => {
-          cards[f].isFlipped = false; cards[s].isFlipped = false;
-          syncUpdate({ memoryCards: cards, memoryFlippedIndices: [], turn: currentUser.id === 'user_1' ? 'user_2' : 'user_1' });
+          const revert = [...cards]; revert[f].isFlipped = false; revert[s].isFlipped = false;
+          syncUpdate({ memoryCards: revert, memoryFlippedIndices: [], turn: currentUser.id === 'user_1' ? 'user_2' : 'user_1' });
         }, 800);
       }
-    } else syncUpdate({ memoryCards: cards, memoryFlippedIndices: flipped });
+    } else syncUpdate({ memoryCards: cards, memoryFlippedIndices: nextFlipped });
   };
 
   const handleGomokuClick = (i: number) => {
@@ -114,37 +135,35 @@ export const GameHub: React.FC<GameProps> = ({ currentUser }) => {
       return false;
     };
     const winId = checkWin(i) ? currentUser.id : (newBoard.every(x => x) ? 'draw' : null);
-    syncUpdate({ board: newBoard, turn: currentUser.id === 'user_1' ? 'user_2' : 'user_1', winner: winId, status: winId ? 'ended' : 'playing', sessionScores: updateGlobalScore(winId) });
+    syncUpdate({ board: newBoard, turn: currentUser.id === 'user_1' ? 'user_2' : 'user_1', winner: winId, status: winId ? 'ended' : 'playing', sessionScores: winId ? updateGlobalScore(winId) : session.sessionScores });
   };
 
   const handleRPS = (choice: 'rock' | 'paper' | 'scissors') => {
+    if (session.rpsChoices?.[currentUser.id]) return;
     const choices = { ...(session.rpsChoices || { user_1: null, user_2: null }), [currentUser.id]: choice };
-    const bothPicked = choices.user_1 && choices.user_2;
+    const bothPicked = !!(choices.user_1 && choices.user_2);
     let winner = null;
     if (bothPicked) {
-      const c1 = choices.user_1, c2 = choices.user_2;
+      const c1 = choices.user_1!, c2 = choices.user_2!;
       if (c1 === c2) winner = 'draw';
       else if ((c1 === 'rock' && c2 === 'scissors') || (c1 === 'paper' && c2 === 'rock') || (c1 === 'scissors' && c2 === 'paper')) winner = 'user_1';
       else winner = 'user_2';
     }
-    syncUpdate({ rpsChoices: choices, winner: winner, status: winner ? 'ended' : 'playing', sessionScores: updateGlobalScore(winner) });
+    syncUpdate({ rpsChoices: choices, winner: winner, status: winner ? 'ended' : 'playing', sessionScores: winner ? updateGlobalScore(winner) : session.sessionScores });
   };
 
   if (session.type === 'none') return (
-    <GlassPanel className="h-full flex flex-col items-center justify-center p-4 text-center" title="Lobby">
-      <div className="mb-6">
-        <h2 className="text-xl font-black uppercase italic tracking-tighter">SELECT_GAME</h2>
-      </div>
-      <div className="grid grid-cols-2 gap-3 w-full max-w-xs">
+    <GlassPanel className="h-full flex flex-col items-center justify-center p-4 text-center border-none shadow-none" title="Gaming Lounge">
+      <div className="grid grid-cols-2 gap-2 w-full max-w-xs">
         {[
-          { icon: '❌', label: 'TicTacToe', fn: initTicTacToe },
-          { icon: '❓', label: 'Memory', fn: initMemory },
-          { icon: '▦', label: 'Gomoku', fn: initGomoku },
+          { icon: '❌', label: 'TicTacToe', fn: () => initTicTacToe('user_1') },
+          { icon: '❓', label: 'Memory', fn: () => initMemory('user_1') },
+          { icon: '▦', label: 'Gomoku', fn: () => initGomoku('user_1') },
           { icon: '✊', label: 'R-P-S', fn: initRPS }
         ].map(g => (
-          <button key={g.label} onClick={g.fn} className={`${theme.buttonStyle} py-4 flex flex-col items-center gap-1 rounded-xl active:scale-90`}>
+          <button key={g.label} onClick={g.fn} className={`${theme.buttonStyle} py-3 flex flex-col items-center gap-1 rounded-lg active:scale-95`}>
             <span className="text-xl">{g.icon}</span>
-            <span className="text-[7px] font-black uppercase">{g.label}</span>
+            <span className="text-[6px] font-black uppercase tracking-widest">{g.label}</span>
           </button>
         ))}
       </div>
@@ -152,46 +171,44 @@ export const GameHub: React.FC<GameProps> = ({ currentUser }) => {
   );
 
   return (
-    <GlassPanel className="h-full flex flex-col relative overflow-hidden" title={`${session.type.toUpperCase()} PROTOCOL`}>
-      <div className="flex justify-between items-center p-2 border-b-2 border-current/10 bg-current/[0.02]">
-        <div className="flex items-center gap-3">
+    <GlassPanel className="h-full flex flex-col relative overflow-hidden border-none shadow-none p-0" title={`${session.type.toUpperCase()} PROTOCOL`}>
+      <div className="flex justify-between items-center p-2 border-b-2 border-current/10 bg-current/[0.02] shrink-0">
+        <div className="flex items-center gap-4">
           <div className="flex flex-col items-center">
-            <span className="text-[5px] font-black uppercase opacity-30">Me</span>
-            <span className="text-sm font-black">{session.sessionScores?.user_1 || 0}</span>
+            <span className="text-[5px] font-black opacity-30">Me: {session.sessionScores?.user_1 || 0}</span>
           </div>
           <div className="flex flex-col items-center">
-            <span className="text-[5px] font-black uppercase opacity-30">Peer</span>
-            <span className="text-sm font-black">{session.sessionScores?.user_2 || 0}</span>
+            <span className="text-[5px] font-black opacity-30">Peer: {session.sessionScores?.user_2 || 0}</span>
           </div>
         </div>
-        <div className={`px-2 py-1 border border-current/20 rounded-full text-[6px] font-black uppercase flex items-center gap-1.5`}>
-          <div className={`w-1 h-1 rounded-full ${session.turn === currentUser.id ? 'bg-green-500' : 'bg-red-500'}`}></div>
+        <div className={`px-2 py-0.5 border border-current/20 rounded-full text-[6px] font-black uppercase flex items-center gap-1.5`}>
+          <div className={`w-1 h-1 rounded-full ${session.turn === currentUser.id ? 'bg-green-500 animate-pulse shadow-[0_0_5px_#22c55e]' : 'bg-red-500'}`}></div>
           {session.turn === currentUser.id ? 'My Turn' : 'Wait'}
         </div>
-        <button onClick={backToLobby} className="w-6 h-6 flex items-center justify-center text-xl">×</button>
+        <button onClick={backToLobby} className="text-sm opacity-30">×</button>
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-1 min-h-0 overflow-hidden">
+      <div className="flex-1 flex items-center justify-center p-2 min-h-0 overflow-hidden bg-current/[0.01]">
         {session.type === 'tictactoe' && (
-          <div className="grid grid-cols-3 gap-1.5 w-full max-w-[240px] aspect-square">
+          <div className="grid grid-cols-3 gap-1.5 w-full max-w-[200px] aspect-square">
             {session.board?.map((cell, i) => (
-              <button key={i} onClick={() => handleTTTClick(i)} className={`aspect-square border-2 ${theme.borderColor} ${theme.cardBg} flex items-center justify-center text-2xl font-black rounded-lg active:scale-95`}>
+              <button key={i} onClick={() => handleTTTClick(i)} className={`aspect-square border-2 ${theme.borderColor} ${theme.cardBg} flex items-center justify-center text-xl font-black rounded-lg active:scale-95`}>
                 <span className={cell === 'X' ? 'text-red-500' : 'text-blue-500'}>{cell}</span>
               </button>
             ))}
           </div>
         )}
         {session.type === 'memory' && (
-          <div className="grid grid-cols-4 gap-1 w-full max-w-[min(100%,260px)] aspect-square">
+          <div className="grid grid-cols-4 gap-1 w-full max-w-[240px] aspect-square">
             {session.memoryCards?.map((card, i) => (
-              <button key={i} onClick={() => handleMemoryClick(i)} className={`aspect-square border border-current/20 flex items-center justify-center text-xl rounded-lg transition-all ${card.isFlipped || card.isMatched ? 'bg-white text-black' : 'bg-black/20'}`}>
+              <button key={i} onClick={() => handleMemoryClick(i)} className={`aspect-square border border-current/20 flex items-center justify-center text-lg rounded-lg transition-all ${card.isFlipped || card.isMatched ? 'bg-white text-black' : 'bg-black/20 text-transparent'}`}>
                 {card.isFlipped || card.isMatched ? card.content : ''}
               </button>
             ))}
           </div>
         )}
         {session.type === 'gomoku' && (
-          <div className="grid grid-cols-10 gap-0 w-full max-w-[min(100%,300px)] aspect-square border border-black/40 bg-zinc-300">
+          <div className="grid grid-cols-10 gap-0 w-full max-w-[280px] aspect-square border border-black/40 bg-zinc-300">
             {session.board?.map((cell, i) => (
               <button key={i} onClick={() => handleGomokuClick(i)} className={`aspect-square border border-black/5 flex items-center justify-center`}>
                 {cell && <div className={`w-[80%] h-[80%] rounded-full ${cell === 'B' ? 'bg-black' : 'bg-white shadow'}`}></div>}
@@ -200,21 +217,20 @@ export const GameHub: React.FC<GameProps> = ({ currentUser }) => {
           </div>
         )}
         {session.type === 'rps' && (
-          <div className="flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center gap-4 w-full">
             {session.status === 'playing' ? (
               <div className="flex gap-2">
                 {(['rock', 'paper', 'scissors'] as const).map(c => (
-                  <button key={c} onClick={() => handleRPS(c)} className={`${theme.buttonStyle} w-14 h-14 flex flex-col items-center justify-center rounded-xl border ${session.rpsChoices?.[currentUser.id] === c ? 'bg-green-500 text-white' : ''} active:scale-90`}>
-                    <span className="text-2xl">{RPS_MAP[c]}</span>
-                    <span className="text-[6px] font-black uppercase">{c}</span>
+                  <button key={c} onClick={() => handleRPS(c)} className={`${theme.buttonStyle} w-16 h-16 flex flex-col items-center justify-center rounded-xl border ${session.rpsChoices?.[currentUser.id] === c ? 'bg-green-500 text-white' : ''}`}>
+                    <span className="text-3xl">{RPS_MAP[c]}</span>
+                    <span className="text-[6px] font-black">{c}</span>
                   </button>
                 ))}
               </div>
             ) : (
-              <div className="flex items-center gap-4 text-4xl">
-                <div className="bg-white p-3 rounded-2xl border-2 border-black">{RPS_MAP[session.rpsChoices?.user_1 as keyof typeof RPS_MAP]}</div>
-                <div className="text-sm font-black italic opacity-20">VS</div>
-                <div className="bg-white p-3 rounded-2xl border-2 border-black">{RPS_MAP[session.rpsChoices?.user_2 as keyof typeof RPS_MAP]}</div>
+              <div className="flex items-center gap-6 text-5xl animate-in zoom-in">
+                <div className="bg-white p-4 rounded-2xl border-2 border-black">{RPS_MAP[session.rpsChoices?.user_1 as keyof typeof RPS_MAP]}</div>
+                <div className="bg-white p-4 rounded-2xl border-2 border-black">{RPS_MAP[session.rpsChoices?.user_2 as keyof typeof RPS_MAP]}</div>
               </div>
             )}
           </div>
@@ -222,13 +238,13 @@ export const GameHub: React.FC<GameProps> = ({ currentUser }) => {
       </div>
 
       {session.status === 'ended' && (
-        <div className="absolute inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center p-6 text-center backdrop-blur-xl">
+        <div className="absolute inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center p-6 text-center backdrop-blur-2xl">
           <h1 className="text-4xl font-black text-white italic mb-6 uppercase tracking-tighter">
-            {session.winner === 'draw' ? 'DRAW' : (session.winner === currentUser.id ? 'VICTORY' : 'DEFEAT')}
+            {session.winner === 'draw' ? 'DRAW' : (session.winner === currentUser.id ? 'WIN' : 'LOSS')}
           </h1>
-          <div className="flex flex-col gap-3 w-40">
-            <button onClick={playAgain} className="bg-white text-black py-3 rounded-xl font-black uppercase text-[9px]">Re-Initiate</button>
-            <button onClick={backToLobby} className="border border-white/20 text-white py-3 rounded-xl font-black uppercase text-[9px]">Lobby</button>
+          <div className="flex flex-col gap-2 w-44">
+            <button onClick={playAgain} className="bg-white text-black py-3 rounded-lg font-black uppercase text-[8px] active:scale-95 transition-all">Re-Link</button>
+            <button onClick={backToLobby} className="border border-white/20 text-white py-3 rounded-lg font-black uppercase text-[8px]">Exit</button>
           </div>
         </div>
       )}
