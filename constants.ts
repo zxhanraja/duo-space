@@ -1,0 +1,177 @@
+
+import { ThemeConfig, Song, User, ThemeId } from './types';
+
+export const USERS: User[] = [
+  { id: 'user_1', name: 'Felix (Me)', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix', status: 'online' },
+  { id: 'user_2', name: 'Aneka (Bestie)', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka', status: 'offline' }
+];
+
+export const THEMES: Record<ThemeId, ThemeConfig> = {
+  light: {
+    id: 'light',
+    name: 'Paper White',
+    bgGradient: 'bg-zinc-100',
+    glassPanel: 'bg-white border-[3px] border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]',
+    accentColor: 'text-black',
+    textColor: 'text-black',
+    secondaryTextColor: 'text-zinc-800',
+    glowColor: 'rgba(0,0,0,0.4)',
+    cardBg: 'bg-white',
+    buttonStyle: 'bg-white text-black border-[3px] border-black hover:bg-black hover:text-white transition-all active:scale-95 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-black uppercase text-[10px]',
+    fontMain: 'font-sans',
+    fontNote: 'font-mono',
+    borderColor: 'border-black'
+  },
+  dark: {
+    id: 'dark',
+    name: 'Neo Tokyo',
+    bgGradient: 'bg-[#0a0a0a]',
+    glassPanel: 'bg-zinc-900/60 backdrop-blur-xl border-2 border-white/20 shadow-[0_0_30px_rgba(255,255,255,0.05)]',
+    accentColor: 'text-purple-400',
+    textColor: 'text-zinc-100',
+    secondaryTextColor: 'text-zinc-400',
+    glowColor: 'rgba(168,85,247,0.4)',
+    cardBg: 'bg-zinc-900',
+    buttonStyle: 'bg-zinc-800 text-white border border-white/20 hover:bg-white hover:text-black transition-all font-black uppercase text-[9px]',
+    fontMain: 'font-mono',
+    fontNote: 'font-mono',
+    borderColor: 'border-white/20'
+  },
+  soft: {
+    id: 'soft',
+    name: 'Matcha Bliss',
+    bgGradient: 'bg-[#f0f4f0]',
+    glassPanel: 'bg-[#e0e8e0]/90 backdrop-blur-md border border-[#4a5d4a]/30 shadow-lg',
+    accentColor: 'text-[#2d3a2d]',
+    textColor: 'text-[#1a231a]',
+    secondaryTextColor: 'text-[#4a5d4a]',
+    glowColor: 'rgba(74,93,74,0.2)',
+    cardBg: 'bg-[#e0e8e0]',
+    buttonStyle: 'bg-[#c8d6c8] text-[#1a231a] border border-[#4a5d4a]/30 hover:bg-[#b0c4b0] font-black uppercase text-[9px]',
+    fontMain: 'font-sans',
+    fontNote: 'font-handwriting',
+    borderColor: 'border-[#4a5d4a]/20'
+  },
+  cyberpunk: {
+    id: 'cyberpunk',
+    name: 'Night City',
+    bgGradient: 'bg-[#000000]',
+    glassPanel: 'bg-black/80 border-2 border-yellow-400 shadow-[4px_4px_20px_rgba(250,204,21,0.5)]',
+    accentColor: 'text-yellow-400',
+    textColor: 'text-cyan-400',
+    secondaryTextColor: 'text-pink-500',
+    glowColor: 'rgba(250,204,21,0.6)',
+    cardBg: 'bg-zinc-950',
+    buttonStyle: 'bg-yellow-400 text-black font-black hover:bg-cyan-400 transition-all font-black uppercase text-[9px]',
+    fontMain: 'font-mono',
+    fontNote: 'font-mono',
+    borderColor: 'border-yellow-400'
+  },
+  minimalist: {
+    id: 'minimalist',
+    name: 'Empty Room',
+    bgGradient: 'bg-white',
+    glassPanel: 'bg-transparent border-b-2 border-zinc-200',
+    accentColor: 'text-zinc-900',
+    textColor: 'text-zinc-800',
+    secondaryTextColor: 'text-zinc-400',
+    glowColor: 'rgba(0,0,0,0.05)',
+    cardBg: 'bg-white',
+    buttonStyle: 'text-zinc-900 border-zinc-900 border p-2 hover:bg-zinc-900 hover:text-white font-black uppercase text-[9px]',
+    fontMain: 'font-sans',
+    fontNote: 'font-sans',
+    borderColor: 'border-zinc-200'
+  },
+  ocean: {
+    id: 'ocean',
+    name: 'Deep Blue',
+    bgGradient: 'bg-[#001219]',
+    glassPanel: 'bg-[#005f73]/20 border-2 border-[#94d2bd]/30 shadow-2xl backdrop-blur-md',
+    accentColor: 'text-[#94d2bd]',
+    textColor: 'text-white',
+    secondaryTextColor: 'text-[#e9d8a6]',
+    glowColor: 'rgba(148,210,189,0.3)',
+    cardBg: 'bg-[#001219]/80',
+    buttonStyle: 'bg-[#005f73] text-white border border-[#94d2bd]/40 hover:bg-[#0a9396] font-black uppercase text-[9px]',
+    fontMain: 'font-sans',
+    fontNote: 'font-mono',
+    borderColor: 'border-[#94d2bd]/20'
+  },
+  espresso: {
+    id: 'espresso',
+    name: 'Late Night Coffee',
+    bgGradient: 'bg-[#1a0f0a]',
+    glassPanel: 'bg-[#2b1b12]/90 border-2 border-[#5c3d2e]/30 shadow-xl',
+    accentColor: 'text-[#d4a373]',
+    textColor: 'text-[#fefae0]',
+    secondaryTextColor: 'text-[#bc6c25]',
+    glowColor: 'rgba(212,163,115,0.2)',
+    cardBg: 'bg-[#2b1b12]',
+    buttonStyle: 'bg-[#5c3d2e] text-white border border-[#bc6c25] hover:bg-[#bc6c25] font-black uppercase text-[9px]',
+    fontMain: 'font-serif',
+    fontNote: 'font-handwriting',
+    borderColor: 'border-[#5c3d2e]/40'
+  },
+  midnight: {
+    id: 'midnight',
+    name: 'Midnight Sky',
+    bgGradient: 'bg-[#020617]',
+    glassPanel: 'bg-[#1e293b]/40 border-2 border-[#38bdf8]/30 shadow-[0_0_50px_rgba(56,189,248,0.1)]',
+    accentColor: 'text-[#38bdf8]',
+    textColor: 'text-white',
+    secondaryTextColor: 'text-slate-400',
+    glowColor: 'rgba(56,189,248,0.2)',
+    cardBg: 'bg-[#0f172a]',
+    buttonStyle: 'bg-[#38bdf8] text-[#020617] font-black uppercase text-[9px] hover:bg-white',
+    fontMain: 'font-sans',
+    fontNote: 'font-mono',
+    borderColor: 'border-[#38bdf8]/20'
+  },
+  emerald: {
+    id: 'emerald',
+    name: 'Emerald Forest',
+    bgGradient: 'bg-[#064e3b]',
+    glassPanel: 'bg-[#065f46]/30 border-2 border-[#34d399]/40 shadow-xl',
+    accentColor: 'text-[#34d399]',
+    textColor: 'text-emerald-50',
+    secondaryTextColor: 'text-emerald-300',
+    glowColor: 'rgba(52,211,153,0.2)',
+    cardBg: 'bg-[#064e3b]',
+    buttonStyle: 'bg-[#34d399] text-[#064e3b] font-black uppercase text-[9px] hover:bg-white',
+    fontMain: 'font-sans',
+    fontNote: 'font-handwriting',
+    borderColor: 'border-[#34d399]/30'
+  },
+  amber: {
+    id: 'amber',
+    name: 'Vintage Amber',
+    bgGradient: 'bg-[#451a03]',
+    glassPanel: 'bg-[#78350f]/30 border-2 border-[#f59e0b]/40 shadow-2xl',
+    accentColor: 'text-[#f59e0b]',
+    textColor: 'text-amber-50',
+    secondaryTextColor: 'text-amber-400',
+    glowColor: 'rgba(245,158,11,0.2)',
+    cardBg: 'bg-[#451a03]',
+    buttonStyle: 'bg-[#f59e0b] text-[#451a03] font-black uppercase text-[9px] hover:bg-white',
+    fontMain: 'font-serif',
+    fontNote: 'font-mono',
+    borderColor: 'border-[#f59e0b]/30'
+  },
+  berry: {
+    id: 'berry',
+    name: 'Wild Berry',
+    bgGradient: 'bg-[#4c0519]',
+    glassPanel: 'bg-[#831843]/30 border-2 border-[#fb7185]/40 shadow-xl backdrop-blur-sm',
+    accentColor: 'text-[#fb7185]',
+    textColor: 'text-rose-50',
+    secondaryTextColor: 'text-rose-300',
+    glowColor: 'rgba(251,113,133,0.2)',
+    cardBg: 'bg-[#4c0519]',
+    buttonStyle: 'bg-[#fb7185] text-[#4c0519] font-black uppercase text-[9px] hover:bg-white',
+    fontMain: 'font-sans',
+    fontNote: 'font-sans',
+    borderColor: 'border-[#fb7185]/30'
+  }
+};
+
+export const INITIAL_PLAYLIST: Song[] = [];

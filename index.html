@@ -1,0 +1,91 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#000000" />
+    <title>DuoSpace - Virtual Hangout</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              handwriting: ['Patrick Hand', 'cursive'],
+              mono: ['Fira Code', 'monospace'],
+            },
+            animation: {
+              'spin-slow': 'spin 8s linear infinite',
+              'bounce-soft': 'bounce 2s infinite',
+              'float': 'float 6s ease-in-out infinite',
+              'pulse-glow': 'pulseGlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'shake': 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both',
+            },
+            keyframes: {
+              float: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-10px)' },
+              },
+              pulseGlow: {
+                '0%, 100%': { opacity: '1', boxShadow: '0 0 10px currentColor' },
+                '50%': { opacity: '0.5', boxShadow: '0 0 20px currentColor' },
+              },
+              shake: {
+                '10%, 90%': { transform: 'translate3d(-1px, 0, 0)' },
+                '20%, 80%': { transform: 'translate3d(2px, 0, 0)' },
+                '30%, 50%, 70%': { transform: 'translate3d(-4px, 0, 0)' },
+                '40%, 60%': { transform: 'translate3d(4px, 0, 0)' },
+              }
+            }
+          },
+        },
+      };
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Patrick+Hand&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --theme-bg: #000000;
+        --theme-text: #ffffff;
+        --theme-border: rgba(255,255,255,0.1);
+      }
+      ::-webkit-scrollbar { width: 4px; height: 4px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.1); border-radius: 10px; }
+      .dark ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); }
+      body { 
+        margin: 0; 
+        overflow: hidden; 
+        background: var(--theme-bg); 
+        color: var(--theme-text);
+        -webkit-tap-highlight-color: transparent; 
+      }
+      
+      /* Force Repaint Fix for Mobile Safari/Chrome */
+      .force-repaint {
+        animation: repaint 1ms;
+      }
+      @keyframes repaint { from { opacity: 0.99; } to { opacity: 1; } }
+
+      #root { height: 100dvh; width: 100%; }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.39.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
