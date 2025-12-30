@@ -23,7 +23,7 @@ class SyncService {
   private isPeerOnline: boolean = false;
   private isConnected: boolean = false;
   private reconnectInterval: any = null;
-  
+
   private state = {
     messages: [] as Message[],
     notes: [] as Note[],
@@ -56,16 +56,38 @@ class SyncService {
     } catch (e) { this.currentRoomCode = 'SYNC-NOW'; }
   }
 
+  private async fetchHistory() {
+    if (!this.supabase) return;
+    const { data } = await this.supabase
+      .from('messages')
+      .select('*')
+      .eq('room_id', this.currentRoomCode)
+      .order('created_at', { ascending: true })
+      .limit(50);
+
+    if (data) {
+      this.state.messages = data.map(m => ({
+        id: m.id,
+        senderId: m.sender_id,
+        text: m.text,
+        timestamp: new Date(m.created_at).getTime(),
+        type: m.type as any
+      }));
+      this.notify('full_sync', this.state);
+    }
+  }
+
   private setupCommunication() {
     try {
       this.localBus = new BroadcastChannel(`duospace_v5_${this.currentRoomCode}`);
       this.localBus.onmessage = (event) => this.handleIncoming(event.data);
-    } catch (e) {}
+    } catch (e) { }
 
     const config = getSupabaseConfig();
     if (config.isDetected) {
       this.supabase = createClient(config.url, config.key);
       this.connectWithRetry();
+      this.fetchHistory();
     } else {
       this.emitPresence();
     }
@@ -74,7 +96,7 @@ class SyncService {
   private connectWithRetry() {
     if (!this.supabase) return;
     if (this.channel) this.supabase.removeChannel(this.channel);
-    
+
     this.channel = this.supabase.channel(`room_${this.currentRoomCode}`, {
       config: { presence: { key: this.myUserId } }
     });
@@ -120,10 +142,20 @@ class SyncService {
     if (type === 'TYPING') this.notify('typing_status', payload);
   }
 
-  private broadcast(type: string, payload: any) {
+  private async broadcast(type: string, payload: any) {
     const envelope = { type, payload, senderId: this.myUserId, ts: Date.now() };
     if (this.channel && this.isConnected) this.channel.send({ type: 'broadcast', event: 'sync', payload: envelope });
     if (this.localBus) this.localBus.postMessage(envelope);
+
+    // Persist messages to DB if type is MSG
+    if (type === 'MSG' && this.supabase) {
+      await this.supabase.from('messages').insert({
+        room_id: this.currentRoomCode,
+        sender_id: payload.senderId,
+        text: payload.text,
+        type: payload.type
+      });
+    }
   }
 
   public broadcastFullState() { this.broadcast('FULL_SYNC_PAYLOAD', this.state); }
@@ -145,7 +177,7 @@ class SyncService {
   }
 
   private notify(event: string, payload: any) {
-    if (this.listeners[event]) this.listeners[event].forEach(cb => { try { cb(payload); } catch (e) {} });
+    if (this.listeners[event]) this.listeners[event].forEach(cb => { try { cb(payload); } catch (e) { } });
   }
 
   public subscribeToStatus(cb: Function) {
@@ -155,7 +187,7 @@ class SyncService {
   }
 
   private emitPresence() {
-    this.statusListeners.forEach(cb => { try { cb(this.isPeerOnline, this.currentRoomCode, this.isConnected); } catch (e) {} });
+    this.statusListeners.forEach(cb => { try { cb(this.isPeerOnline, this.currentRoomCode, this.isConnected); } catch (e) { } });
   }
 
   public getState() { return this.state; }
