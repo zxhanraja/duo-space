@@ -46,18 +46,18 @@ export const Chat: React.FC<ChatProps> = ({ currentUser }) => {
   const dispatchMessage = (textOverride?: string, type: Message['type'] = 'text') => {
     const text = textOverride || inputText;
     if (!text.trim()) return;
-    const newMsg: Message = { 
-      id: `m_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`, 
-      senderId: type === 'ai_suggestion' ? 'system_ai' : currentUser.id, 
-      text, 
-      timestamp: Date.now(), 
-      type 
+    const newMsg: Message = {
+      id: `m_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+      senderId: type === 'ai_suggestion' ? 'system_ai' : currentUser.id,
+      text,
+      timestamp: Date.now(),
+      type
     };
     setMessages(prev => [...prev, newMsg]);
     syncService.sendMessage(newMsg);
     if (!textOverride) setInputText('');
     syncService.sendTyping(false);
-    if (textOverride) setShowEmojis(false); 
+    if (textOverride) setShowEmojis(false);
   };
 
   const getAiSuggestion = async () => {
@@ -66,7 +66,7 @@ export const Chat: React.FC<ChatProps> = ({ currentUser }) => {
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const recentHistory = messages.slice(-5).map(m => `${m.senderId === currentUser.id ? 'Self' : 'Peer'}: ${m.text}`).join('\n');
-      
+
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: `Chat History:\n${recentHistory}\n\nSuggest one short, charming, or playful message for this couple. Only text.`,
@@ -75,14 +75,14 @@ export const Chat: React.FC<ChatProps> = ({ currentUser }) => {
           temperature: 0.8,
         }
       });
-      
+
       const suggestion = response.text?.trim();
       if (suggestion) dispatchMessage(suggestion, 'ai_suggestion');
     } catch (error) { console.error(error); } finally { setIsAiLoading(false); }
   };
 
   return (
-    <GlassPanel className="h-full flex flex-col min-h-0 border-none shadow-none" title="SPACE TRANSMISSION 🛰️">
+    <GlassPanel className="h-full flex flex-col min-h-0 border-none shadow-none bg-inherit" title="SPACE TRANSMISSION 🛰️">
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto pr-1 space-y-3 mb-3 custom-scrollbar min-h-0">
         {messages.map((m) => {
           const isMe = m.senderId === currentUser.id;
@@ -91,9 +91,9 @@ export const Chat: React.FC<ChatProps> = ({ currentUser }) => {
             <div key={m.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-in slide-in-from-bottom-2 duration-300`}>
               <div className={`
                 max-w-[85%] px-3 py-2.5 rounded-2xl text-[13px] md:text-[14px] border-2 shadow-sm
-                ${isAi ? 'bg-purple-500/10 border-purple-500/30 italic text-purple-400' : 
-                  isMe ? `bg-current/10 ${theme.textColor} ${theme.borderColor} rounded-tr-none` : 
-                  `${theme.cardBg} ${theme.textColor} ${theme.borderColor} rounded-tl-none`}
+                ${isAi ? 'bg-purple-500/10 border-purple-500/30 italic text-purple-400' :
+                  isMe ? `bg-current/10 ${theme.textColor} ${theme.borderColor} rounded-tr-none` :
+                    `${theme.cardBg} ${theme.textColor} ${theme.borderColor} rounded-tl-none`}
               `}>
                 {m.text}
               </div>
@@ -114,20 +114,20 @@ export const Chat: React.FC<ChatProps> = ({ currentUser }) => {
 
         <div className={`flex items-center border-2 ${theme.borderColor} rounded-full ${theme.cardBg} overflow-hidden h-12 md:h-14 shadow-md`}>
           <button onClick={() => setShowEmojis(!showEmojis)} className={`w-12 md:w-14 h-full flex items-center justify-center border-r-2 ${theme.borderColor} text-lg active:bg-current/10`}> 💌 </button>
-          <input 
+          <input
             type="text" value={inputText}
             onChange={(e) => { setInputText(e.target.value); syncService.sendTyping(e.target.value.length > 0); }}
             onKeyDown={(e) => e.key === 'Enter' && dispatchMessage()}
             placeholder="SIGNAL..."
             className="flex-1 min-w-0 bg-transparent px-4 text-[13px] font-black uppercase tracking-tight focus:outline-none placeholder:opacity-20"
           />
-          <button 
-            onClick={getAiSuggestion} 
+          <button
+            onClick={getAiSuggestion}
             disabled={isAiLoading}
             className={`w-12 md:w-14 h-full flex items-center justify-center border-x-2 ${theme.borderColor} text-lg transition-all ${isAiLoading ? 'opacity-20 animate-spin' : 'hover:bg-current/5'}`}
           > {isAiLoading ? '🌀' : '✨'} </button>
-          <button 
-            onClick={() => dispatchMessage()} 
+          <button
+            onClick={() => dispatchMessage()}
             className={`w-14 md:w-16 h-full flex items-center justify-center active:scale-95 transition-transform ${theme.buttonStyle} border-none shadow-none rounded-none`}
           >
             🚀
