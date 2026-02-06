@@ -46,6 +46,7 @@ export const GameHub: React.FC<GameProps> = ({ currentUser }) => {
     if (session.type === 'tictactoe') initTicTacToe(nextStarter);
     else if (session.type === 'memory') initMemory(nextStarter);
     else if (session.type === 'rps') initRPS();
+    else if (session.type === 'hangman') initHangman(nextStarter);
   };
 
   const initTicTacToe = (t: string) => syncUpdate({ type: 'tictactoe', status: 'playing', board: Array(9).fill(null), turn: t, winner: null, lastStarterId: t });
@@ -106,6 +107,72 @@ export const GameHub: React.FC<GameProps> = ({ currentUser }) => {
     syncUpdate({ rpsChoices: choices, winner: win, status: win ? 'ended' : 'playing', sessionScores: win ? calculateGlobalScore(win) : session.sessionScores });
   };
 
+  const HANGMAN_WORDS = ['REACT', 'TYPESCRIPT', 'TAILWIND', 'COMPONENT', 'HOOK', 'STATE', 'EFFECT', 'SUPABASE', 'VITE', 'DEBUG', 'COMPILE', 'RENDER', 'INTERFACE', 'PROMISE', 'ASYNC', 'AWAIT'];
+
+  const initHangman = (t: string) => {
+    const word = HANGMAN_WORDS[Math.floor(Math.random() * HANGMAN_WORDS.length)];
+    syncUpdate({ type: 'hangman', status: 'playing', turn: t, winner: null, lastStarterId: t, word: word, guessedLetters: [], maxLives: 6 });
+  };
+
+  const handleHangmanGuess = (letter: string) => {
+    if (session.status !== 'playing' || session.turn !== currentUser.id || session.type !== 'hangman') return;
+    if ((session.guessedLetters || []).includes(letter)) return;
+
+    const nextGuessed = [...(session.guessedLetters || []), letter];
+    const word = session.word || '';
+    const wrongGuesses = nextGuessed.filter(l => !word.includes(l)).length;
+
+    let win: string | null = null;
+    let status: 'playing' | 'ended' = 'playing';
+
+    if (word.split('').every(l => nextGuessed.includes(l))) {
+      win = currentUser.id;
+      status = 'ended';
+    } else if (wrongGuesses >= (session.maxLives || 6)) {
+      win = currentUser.id === 'user_1' ? 'user_2' : 'user_1'; // Other player wins if you lose all lives? Or maybe just 'defeat' for current/both? Let's say current player loses turn or other player wins. Actually simpler: Current player loses -> Other wins.
+      // Wait, usually hangman is cooperative or solo in turn. Let's make it turn-based cooperative?
+      // "Two players strictly synchronized...". 
+      // If I miss, do I lose turn?
+      // Let's keep it simple: Shared state. Turn based guessing.
+      status = 'ended';
+    } else {
+      // Switch turn on miss? Or keep turn on hit? 
+      // Standard competitive: switch turn always? 
+      // Let's switch turn on every guess to make it interactive.
+    }
+
+    // Revised Logic for Turn-Based Cooperative/Competitive:
+    // This is a "GameHub" implies 2 players.
+    // Let's make it: Turn switches after every guess.
+    // If word completed -> Last player wins? Or shared victory?
+    // Let's calculate winner: Who guessed the last letter? Or just whoever is current turn when matches.
+
+    // Simplest: 
+    // If wrong guess count >= max -> DEFEAT (Opponent wins).
+    // If word complete -> VICTORY (Current player wins).
+
+    const nextTurn = currentUser.id === 'user_1' ? 'user_2' : 'user_1';
+
+    const isWin = word.split('').every(l => nextGuessed.includes(l));
+    const isLoss = wrongGuesses >= (session.maxLives || 6);
+
+    if (isWin) {
+      win = currentUser.id;
+      status = 'ended';
+    } else if (isLoss) {
+      win = nextTurn; // Opponent wins if you die
+      status = 'ended';
+    }
+
+    syncUpdate({
+      guessedLetters: nextGuessed,
+      turn: status === 'ended' ? session.turn : nextTurn,
+      winner: win,
+      status: status,
+      sessionScores: win ? calculateGlobalScore(win) : session.sessionScores
+    });
+  };
+
   if (session.type === 'none') return (
     <div className="h-full flex flex-col items-center justify-start py-4">
       <h1 className="text-4xl md:text-6xl font-black italic mb-2 tracking-tighter uppercase">SELECT GAME</h1>
@@ -116,7 +183,7 @@ export const GameHub: React.FC<GameProps> = ({ currentUser }) => {
           { icon: '❌', label: 'TIC-TAC-TOE', color: 'text-red-500', fn: () => initTicTacToe('user_1') },
           { icon: '❓', label: 'MEMORY', color: 'text-pink-500', fn: () => initMemory('user_1') },
           { icon: '✊', label: 'R-P-S', color: 'text-yellow-500', fn: initRPS },
-          { icon: '🪦', label: 'HANGMAN', color: 'text-purple-500', fn: () => { } },
+          { icon: '🪦', label: 'HANGMAN', color: 'text-purple-500', fn: () => initHangman('user_1') },
         ].map((g, idx) => (
           <button key={idx} onClick={g.fn} className={`flex flex-col items-center justify-center p-6 rounded-[2rem] border-4 ${theme.borderColor} ${theme.cardBg} hover:-translate-y-1 active:scale-95 transition-all shadow-[4px_4px_0_0_#000]`}>
             <span className={`text-5xl mb-2 ${g.color}`}>{g.icon}</span>
@@ -167,12 +234,50 @@ export const GameHub: React.FC<GameProps> = ({ currentUser }) => {
             </div>
           </div>
         )}
+        {session.type === 'hangman' && (
+          <div className="flex flex-col items-center w-full max-w-2xl gap-8">
+            <div className="flex flex-col items-center">
+              <div className="text-6xl mb-4 text-red-500">
+                {['❤️', '❤️❤️', '❤️❤️❤️', '❤️❤️❤️❤️', '❤️❤️❤️❤️❤️', '❤️❤️❤️❤️❤️❤️', '❤️❤️❤️❤️❤️❤️❤️'][6 - (session.guessedLetters?.filter(l => !session.word?.includes(l)).length || 0)] || '💀'}
+              </div>
+              <div className="flex gap-2 flex-wrap justify-center mb-8">
+                {session.word?.split('').map((char, i) => (
+                  <div key={i} className={`w-10 h-12 md:w-14 md:h-16 border-b-4 ${theme.borderColor} flex items-end justify-center text-3xl md:text-5xl font-black uppercase`}>
+                    {session.guessedLetters?.includes(char) ? char : ''}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-1 flex-wrap justify-center max-w-md">
+              {'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(letter => {
+                const isGuessed = session.guessedLetters?.includes(letter);
+                const isRight = session.word?.includes(letter);
+                return (
+                  <button
+                    key={letter}
+                    disabled={isGuessed || session.turn !== currentUser.id}
+                    onClick={() => handleHangmanGuess(letter)}
+                    className={`w-8 h-10 md:w-10 md:h-12 rounded-lg font-black text-sm md:text-lg transition-all ${isGuessed
+                      ? (isRight ? 'bg-green-500 text-white opacity-50' : 'bg-red-500 text-white opacity-20')
+                      : `bg-current/10 hover:bg-current/20 ${session.turn === currentUser.id ? 'active:scale-90 cursor-pointer' : 'cursor-not-allowed opacity-50'}`
+                      }`}
+                  >
+                    {letter}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="text-[10px] font-black uppercase opacity-40 mt-4 tracking-widest">{session.turn === currentUser.id ? 'YOUR TURN' : 'OPPONENT TURN'}</p>
+          </div>
+        )}
 
         {session.status === 'ended' && (
           <div className="absolute inset-0 z-[50] bg-black/95 backdrop-blur-3xl flex flex-col items-center justify-center p-6 animate-in fade-in zoom-in-95 rounded-3xl">
             <h1 className="text-6xl md:text-8xl font-black text-white italic uppercase tracking-tighter mb-10 text-center leading-none">
               {session.winner === 'draw' ? 'DRAW' : (session.winner === currentUser.id ? 'VICTORY' : 'DEFEAT')}
             </h1>
+            {session.type === 'hangman' && <p className="text-white opacity-50 text-xl font-black uppercase mb-8 tracking-widest">WORD WAS: {session.word}</p>}
             <div className="flex flex-col gap-4 w-full max-w-xs">
               <button onClick={playAgain} className="w-full bg-white text-black py-5 rounded-[2rem] font-black uppercase text-lg shadow-2xl active:scale-95">Rematch</button>
               <button onClick={backToLobby} className="w-full border-4 border-white/20 text-white/50 py-5 rounded-[2rem] font-black uppercase text-lg hover:text-white transition-all">Exit Lobby</button>

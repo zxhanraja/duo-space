@@ -101,6 +101,20 @@ const DuoSpaceShell: React.FC<{ user: User }> = ({ user }) => {
             ref={iframeRef}
             src={`https://www.youtube.com/embed/${activeSong.url}?enablejsapi=1&autoplay=1&controls=0&mute=0&rel=0&origin=${encodeURIComponent(currentOrigin)}`}
             allow="autoplay; encrypted-media"
+            onLoad={() => {
+              // FORCE SYNC ON LOAD
+              const state = syncService.getState();
+              if (state.player && iframeRef.current?.contentWindow) {
+                const func = state.player.isPlaying ? 'playVideo' : 'pauseVideo';
+                iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args: [] }), '*');
+                if (state.player.isPlaying) {
+                  // Calculate correct time based on timestamp + drift
+                  const drift = (Date.now() - state.player.timestamp) / 1000;
+                  const targetTime = state.player.progress + drift;
+                  iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'seekTo', args: [targetTime, true] }), '*');
+                }
+              }
+            }}
           />
         )}
       </div>
