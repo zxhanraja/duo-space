@@ -83,10 +83,15 @@ const DuoSpaceShell: React.FC<{ user: User }> = ({ user }) => {
 
   const handleAudioUnlock = () => {
     setHasUnlockedAudio(true);
-    // Force play on iframe if possible
-    if (iframeRef.current?.contentWindow) {
-      iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*');
-    }
+    // Force play on iframe with retry to ensure it catches the command
+    const triggerPlay = () => {
+      if (iframeRef.current?.contentWindow) {
+        iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*');
+      }
+    };
+    triggerPlay();
+    setTimeout(triggerPlay, 500);
+    setTimeout(triggerPlay, 1500);
   };
 
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -94,8 +99,8 @@ const DuoSpaceShell: React.FC<{ user: User }> = ({ user }) => {
   return (
     <div id="app-root" className={`fixed inset-0 w-full h-[100dvh] flex flex-col overflow-hidden font-mono ${isShaking ? 'animate-shake' : ''} transition-all duration-700`}>
 
-      {/* GLOBAL BACKGROUND AUDIO ENGINE */}
-      <div className="fixed -top-[1000px] -left-[1000px] w-1 h-1 pointer-events-none opacity-0 overflow-hidden">
+      {/* GLOBAL BACKGROUND AUDIO ENGINE - Kept on-screen to avoid background throttling */}
+      <div className="fixed bottom-0 right-0 w-1 h-1 opacity-0 pointer-events-none overflow-hidden z-[0]">
         {activeSong && (
           <iframe
             ref={iframeRef}
