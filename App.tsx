@@ -115,8 +115,8 @@ const DuoSpaceShell: React.FC<{ user: User }> = ({ user }) => {
   return (
     <div id="app-root" className={`fixed inset-0 w-full h-[100dvh] flex flex-col overflow-hidden font-mono ${isShaking ? 'animate-shake' : ''} transition-all duration-700`}>
 
-      {/* GLOBAL BACKGROUND AUDIO ENGINE - Kept on-screen to avoid background throttling */}
-      <div className="fixed bottom-0 right-0 w-1 h-1 opacity-0 pointer-events-none overflow-hidden z-[0]">
+      {/* GLOBAL BACKGROUND AUDIO ENGINE - Visible on Mobile for Autoplay Policy */}
+      <div className="fixed bottom-4 right-4 md:bottom-0 md:right-0 w-16 h-16 md:w-1 md:h-1 opacity-[0.08] md:opacity-0 pointer-events-auto md:pointer-events-none overflow-hidden z-[1] rounded-2xl border-2 border-white/10">
         {activeSong && (
           <iframe
             ref={iframeRef}
