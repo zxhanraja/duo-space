@@ -34,7 +34,7 @@ export const GameHub: React.FC<GameProps> = ({ currentUser }) => {
   };
 
   const calculateGlobalScore = (winId: string | null) => {
-    const scores = { ...(session.sessionScores || { user_1: 0, user_2: 0 }) };
+    const scores = { ...(session.sessionScores || {}) };
     if (winId && winId !== 'draw') scores[winId] = (scores[winId] || 0) + 1;
     return scores;
   };
@@ -42,52 +42,87 @@ export const GameHub: React.FC<GameProps> = ({ currentUser }) => {
   const backToLobby = () => syncUpdate({ type: 'none', status: 'lobby', winner: null, board: [], rpsChoices: {} });
 
   const playAgain = () => {
-    const nextStarter = (session.lastStarterId || 'user_1') === 'user_1' ? 'user_2' : 'user_1';
-    if (session.type === 'tictactoe') initTicTacToe(nextStarter);
-    else if (session.type === 'memory') initMemory(nextStarter);
+    // If I was the starter last time, let the peer start (by setting turn to 'PEER')
+    // If 'PEER' started, I start.
+    // Actually, simple rotation: Swap based on who started previous session.
+    // For now, let's just default to current user restarts or keep same starter.
+    // Better: Winner starts? Or Alternate.
+    // Let's keep it simple: The person clicking 'Rematch' starts the new game.
+    const starter = currentUser.id;
+    if (session.type === 'tictactoe') initTicTacToe(starter);
+    else if (session.type === 'memory') initMemory(starter);
     else if (session.type === 'rps') initRPS();
-    else if (session.type === 'hangman') initHangman(nextStarter);
+    else if (session.type === 'hangman') initHangman(starter);
   };
 
+  // Turn Logic: 'PEER' is a wildcard for "Not the Host"
+  // If turn == lastStarterId -> Host's turn
+  // If turn == 'PEER' -> Peer's turn
+  const isMyTurn = session.turn === currentUser.id || (session.turn === 'PEER' && currentUser.id !== session.lastStarterId);
+  const getNextTurn = () => (currentUser.id === session.lastStarterId ? 'PEER' : session.lastStarterId!);
+
   const initTicTacToe = (t: string) => syncUpdate({ type: 'tictactoe', status: 'playing', board: Array(9).fill(null), turn: t, winner: null, lastStarterId: t });
+
   const initMemory = (t: string) => {
     const cardsSet = [...MEMORY_SYMBOLS].slice(0, 8);
     const shuffled = [...cardsSet, ...cardsSet].sort(() => Math.random() - 0.5);
-    syncUpdate({ type: 'memory', status: 'playing', turn: t, winner: null, lastStarterId: t, memoryCards: shuffled.map((c, i) => ({ id: i, content: c, isFlipped: false, isMatched: false })), memoryScores: { user_1: 0, user_2: 0 }, memoryFlippedIndices: [] });
+    syncUpdate({ type: 'memory', status: 'playing', turn: t, winner: null, lastStarterId: t, memoryCards: shuffled.map((c, i) => ({ id: i, content: c, isFlipped: false, isMatched: false })), memoryScores: {}, memoryFlippedIndices: [] });
   };
-  const initRPS = () => syncUpdate({ type: 'rps', status: 'playing', rpsChoices: { user_1: null, user_2: null }, winner: null });
+
+  const initRPS = () => syncUpdate({ type: 'rps', status: 'playing', rpsChoices: {}, winner: null });
 
   const handleTTTClick = (i: number) => {
-    if (session.status !== 'playing' || session.turn !== currentUser.id || session.board?.[i]) return;
+    if (session.status !== 'playing' || !isMyTurn || session.board?.[i]) return;
+
     const newBoard = [...(session.board || [])];
-    newBoard[i] = currentUser.id === 'user_1' ? 'X' : 'O';
+    newBoard[i] = currentUser.id === session.lastStarterId ? 'X' : 'O'; // Host is always X
+
     const lines = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
     let win = null;
-    for (let [a, b, c] of lines) if (newBoard[a] && newBoard[a] === newBoard[b] && newBoard[a] === newBoard[c]) win = newBoard[a] === 'X' ? 'user_1' : 'user_2';
+    for (let [a, b, c] of lines) if (newBoard[a] && newBoard[a] === newBoard[b] && newBoard[a] === newBoard[c]) win = currentUser.id;
+
     if (!win && newBoard.every(c => c)) win = 'draw';
-    syncUpdate({ board: newBoard, turn: currentUser.id === 'user_1' ? 'user_2' : 'user_1', winner: win, status: win ? 'ended' : 'playing', sessionScores: win ? calculateGlobalScore(win) : session.sessionScores });
+
+    syncUpdate({
+      board: newBoard,
+      turn: win ? session.turn : getNextTurn(),
+      winner: win,
+      status: win ? 'ended' : 'playing',
+      sessionScores: win ? calculateGlobalScore(win) : session.sessionScores
+    });
   };
 
   const handleMemoryClick = (idx: number) => {
-    if (session.status !== 'playing' || session.turn !== currentUser.id) return;
+    if (session.status !== 'playing' || !isMyTurn) return;
     const cards = [...(session.memoryCards || [])];
     const flipped = [...(session.memoryFlippedIndices || [])];
     if (cards[idx].isFlipped || cards[idx].isMatched || flipped.length >= 2) return;
+
     cards[idx].isFlipped = true;
     const nextFlipped = [...flipped, idx];
+
     if (nextFlipped.length === 2) {
       const [f, s] = nextFlipped;
       if (cards[f].content === cards[s].content) {
         cards[f].isMatched = true; cards[s].isMatched = true;
-        const mScores = { ...(session.memoryScores || { user_1: 0, user_2: 0 }), [currentUser.id]: (session.memoryScores?.[currentUser.id] || 0) + 1 };
+        const mScores = { ...(session.memoryScores || {}), [currentUser.id]: (session.memoryScores?.[currentUser.id] || 0) + 1 };
+
         const allMatched = cards.every(c => c.isMatched);
-        let win = allMatched ? (mScores.user_1 > mScores.user_2 ? 'user_1' : (mScores.user_2 > mScores.user_1 ? 'user_2' : 'draw')) : null;
-        syncUpdate({ memoryCards: cards, memoryFlippedIndices: [], memoryScores: mScores, winner: win, status: win ? 'ended' : 'playing', sessionScores: win ? calculateGlobalScore(win) : session.sessionScores });
+        // Calculate winner based on scores
+        let win = null;
+        if (allMatched) {
+          const myScore = mScores[currentUser.id] || 0;
+          const peerId = Object.keys(mScores).find(id => id !== currentUser.id);
+          const peerScore = peerId ? (mScores[peerId] || 0) : 0;
+          win = myScore > peerScore ? currentUser.id : (peerScore > myScore ? peerId : 'draw');
+        }
+
+        syncUpdate({ memoryCards: cards, memoryFlippedIndices: [], memoryScores: mScores, winner: win, status: win ? 'ended' : 'playing', sessionScores: win && typeof win === 'string' ? calculateGlobalScore(win) : session.sessionScores });
       } else {
         syncUpdate({ memoryCards: cards, memoryFlippedIndices: nextFlipped });
         setTimeout(() => {
           const revert = [...cards]; revert[f].isFlipped = false; revert[s].isFlipped = false;
-          syncUpdate({ memoryCards: revert, memoryFlippedIndices: [], turn: currentUser.id === 'user_1' ? 'user_2' : 'user_1' });
+          syncUpdate({ memoryCards: revert, memoryFlippedIndices: [], turn: getNextTurn() });
         }, 800);
       }
     } else syncUpdate({ memoryCards: cards, memoryFlippedIndices: nextFlipped });
@@ -95,14 +130,20 @@ export const GameHub: React.FC<GameProps> = ({ currentUser }) => {
 
   const handleRPS = (choice: 'rock' | 'paper' | 'scissors') => {
     if (session.rpsChoices?.[currentUser.id]) return;
-    const choices = { ...(session.rpsChoices || { user_1: null, user_2: null }), [currentUser.id]: choice };
-    const both = !!(choices.user_1 && choices.user_2);
+    const choices = { ...(session.rpsChoices || {}), [currentUser.id]: choice };
+    const playerIds = Object.keys(choices);
+    const both = playerIds.length === 2;
+
     let win = null;
     if (both) {
-      const c1 = choices.user_1!, c2 = choices.user_2!;
+      const p1 = playerIds[0];
+      const p2 = playerIds[1];
+      const c1 = choices[p1];
+      const c2 = choices[p2];
+
       if (c1 === c2) win = 'draw';
-      else if ((c1 === 'rock' && c2 === 'scissors') || (c1 === 'paper' && c2 === 'rock') || (c1 === 'scissors' && c2 === 'paper')) win = 'user_1';
-      else win = 'user_2';
+      else if ((c1 === 'rock' && c2 === 'scissors') || (c1 === 'paper' && c2 === 'rock') || (c1 === 'scissors' && c2 === 'paper')) win = p1;
+      else win = p2;
     }
     syncUpdate({ rpsChoices: choices, winner: win, status: win ? 'ended' : 'playing', sessionScores: win ? calculateGlobalScore(win) : session.sessionScores });
   };
@@ -115,7 +156,7 @@ export const GameHub: React.FC<GameProps> = ({ currentUser }) => {
   };
 
   const handleHangmanGuess = (letter: string) => {
-    if (session.status !== 'playing' || session.turn !== currentUser.id || session.type !== 'hangman') return;
+    if (session.status !== 'playing' || !isMyTurn || session.type !== 'hangman') return;
     if ((session.guessedLetters || []).includes(letter)) return;
 
     const nextGuessed = [...(session.guessedLetters || []), letter];
@@ -125,48 +166,20 @@ export const GameHub: React.FC<GameProps> = ({ currentUser }) => {
     let win: string | null = null;
     let status: 'playing' | 'ended' = 'playing';
 
-    if (word.split('').every(l => nextGuessed.includes(l))) {
-      win = currentUser.id;
-      status = 'ended';
-    } else if (wrongGuesses >= (session.maxLives || 6)) {
-      win = currentUser.id === 'user_1' ? 'user_2' : 'user_1'; // Other player wins if you lose all lives? Or maybe just 'defeat' for current/both? Let's say current player loses turn or other player wins. Actually simpler: Current player loses -> Other wins.
-      // Wait, usually hangman is cooperative or solo in turn. Let's make it turn-based cooperative?
-      // "Two players strictly synchronized...". 
-      // If I miss, do I lose turn?
-      // Let's keep it simple: Shared state. Turn based guessing.
-      status = 'ended';
-    } else {
-      // Switch turn on miss? Or keep turn on hit? 
-      // Standard competitive: switch turn always? 
-      // Let's switch turn on every guess to make it interactive.
-    }
-
-    // Revised Logic for Turn-Based Cooperative/Competitive:
-    // This is a "GameHub" implies 2 players.
-    // Let's make it: Turn switches after every guess.
-    // If word completed -> Last player wins? Or shared victory?
-    // Let's calculate winner: Who guessed the last letter? Or just whoever is current turn when matches.
-
-    // Simplest: 
-    // If wrong guess count >= max -> DEFEAT (Opponent wins).
-    // If word complete -> VICTORY (Current player wins).
-
-    const nextTurn = currentUser.id === 'user_1' ? 'user_2' : 'user_1';
-
     const isWin = word.split('').every(l => nextGuessed.includes(l));
     const isLoss = wrongGuesses >= (session.maxLives || 6);
 
     if (isWin) {
-      win = currentUser.id;
+      win = currentUser.id; // Correct guesser wins? Or shared? Let's say last guesser wins.
       status = 'ended';
     } else if (isLoss) {
-      win = nextTurn; // Opponent wins if you die
+      win = getNextTurn(); // Opponent wins if we run out of lives
       status = 'ended';
     }
 
     syncUpdate({
       guessedLetters: nextGuessed,
-      turn: status === 'ended' ? session.turn : nextTurn,
+      turn: status === 'ended' ? session.turn : getNextTurn(),
       winner: win,
       status: status,
       sessionScores: win ? calculateGlobalScore(win) : session.sessionScores
@@ -180,10 +193,10 @@ export const GameHub: React.FC<GameProps> = ({ currentUser }) => {
 
       <div className="grid grid-cols-2 gap-4 w-full max-w-3xl px-2">
         {[
-          { icon: '❌', label: 'TIC-TAC-TOE', color: 'text-red-500', fn: () => initTicTacToe('user_1') },
-          { icon: '❓', label: 'MEMORY', color: 'text-pink-500', fn: () => initMemory('user_1') },
+          { icon: '❌', label: 'TIC-TAC-TOE', color: 'text-red-500', fn: () => initTicTacToe(currentUser.id) },
+          { icon: '❓', label: 'MEMORY', color: 'text-pink-500', fn: () => initMemory(currentUser.id) },
           { icon: '✊', label: 'R-P-S', color: 'text-yellow-500', fn: initRPS },
-          { icon: '🪦', label: 'HANGMAN', color: 'text-purple-500', fn: () => initHangman('user_1') },
+          { icon: '🪦', label: 'HANGMAN', color: 'text-purple-500', fn: () => initHangman(currentUser.id) },
         ].map((g, idx) => (
           <button key={idx} onClick={g.fn} className={`flex flex-col items-center justify-center p-6 rounded-[2rem] border-4 ${theme.borderColor} ${theme.cardBg} hover:-translate-y-1 active:scale-95 transition-all shadow-[4px_4px_0_0_#000]`}>
             <span className={`text-5xl mb-2 ${g.color}`}>{g.icon}</span>
@@ -198,8 +211,16 @@ export const GameHub: React.FC<GameProps> = ({ currentUser }) => {
     <div className="h-full flex flex-col relative max-w-4xl mx-auto overflow-hidden bg-inherit">
       <div className="flex justify-between items-center p-3 border-b-2 border-current/10 bg-current/[0.03] rounded-t-3xl">
         <div className="flex gap-6">
-          <div className="text-left"><p className="text-[8px] opacity-30 font-black uppercase">Me</p><p className="text-xl font-black italic">{session.sessionScores?.[currentUser.id] || 0}</p></div>
-          <div className="text-left"><p className="text-[8px] opacity-30 font-black uppercase">Peer</p><p className="text-xl font-black italic">{session.sessionScores?.[currentUser.id === 'user_1' ? 'user_2' : 'user_1'] || 0}</p></div>
+          <div className="text-left">
+            <p className="text-[8px] opacity-30 font-black uppercase">Me</p>
+            <p className="text-xl font-black italic">{session.sessionScores?.[currentUser.id] || 0}</p>
+          </div>
+          <div className="text-left">
+            <p className="text-[8px] opacity-30 font-black uppercase">Peer</p>
+            <p className="text-xl font-black italic">
+              {Object.entries(session.sessionScores || {}).find(([k]) => k !== currentUser.id)?.[1] || 0}
+            </p>
+          </div>
         </div>
         <button onClick={backToLobby} className="w-10 h-10 flex items-center justify-center rounded-xl bg-red-500 text-white font-black text-xl active:scale-90">×</button>
       </div>

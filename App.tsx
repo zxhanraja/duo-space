@@ -77,14 +77,26 @@ const DuoSpaceShell: React.FC<{ user: User }> = ({ user }) => {
   // Modern browsers block autoplay. This interval "hammers" the play command
   // to ensure that once the user has interacted with the page *anywhere*,
   // the iframe eventually catches the signal and plays.
+  // ROBUST PLAYBACK HEARTBEAT & SYNC BROADCASTER
   useEffect(() => {
     if (!activeSong) return;
 
     const interval = setInterval(() => {
       const state = syncService.getState();
+
+      // 1. Force Local Playback (Iframe)
       if (state.player?.isPlaying && iframeRef.current?.contentWindow) {
         iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*');
       }
+
+      // 2. Force Network Sync (Broadcast to Peers)
+      // If I am playing (locally confirmed or I initiated), I shout my state
+      // ensuring peers who drift or join late catch up.
+      if (state.player?.isPlaying) {
+        // We update timestamp to "now" so peers adjust drift
+        syncService.syncPlayer({ ...state.player, timestamp: Date.now() });
+      }
+
     }, 3000);
 
     return () => clearInterval(interval);
