@@ -73,6 +73,23 @@ const DuoSpaceShell: React.FC<{ user: User }> = ({ user }) => {
     return () => { unsubStatus(); unsubNudge(); unsubPlayer(); unsubFull(); };
   }, [activeSong?.id]);
 
+  // ROBUST PLAYBACK HEARTBEAT
+  // Modern browsers block autoplay. This interval "hammers" the play command
+  // to ensure that once the user has interacted with the page *anywhere*,
+  // the iframe eventually catches the signal and plays.
+  useEffect(() => {
+    if (!activeSong) return;
+
+    const interval = setInterval(() => {
+      const state = syncService.getState();
+      if (state.player?.isPlaying && iframeRef.current?.contentWindow) {
+        iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*');
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [activeSong]);
+
   const cycleTheme = () => {
     const themeIds = Object.keys(THEMES) as ThemeId[];
     const nextIndex = (themeIds.indexOf(theme.id) + 1) % themeIds.length;
