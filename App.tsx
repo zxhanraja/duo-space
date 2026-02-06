@@ -19,8 +19,6 @@ const DuoSpaceShell: React.FC<{ user: User }> = ({ user }) => {
   const [showPairDialog, setShowPairDialog] = useState(false);
   const [isShaking, setIsShaking] = useState(false);
   const [joinInput, setJoinInput] = useState('');
-  const [hasUnlockedAudio, setHasUnlockedAudio] = useState(false);
-
   const [activeSong, setActiveSong] = useState<Song | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -81,18 +79,7 @@ const DuoSpaceShell: React.FC<{ user: User }> = ({ user }) => {
     setTheme(themeIds[nextIndex]);
   };
 
-  const handleAudioUnlock = () => {
-    setHasUnlockedAudio(true);
-    // Force play on iframe with retry to ensure it catches the command
-    const triggerPlay = () => {
-      if (iframeRef.current?.contentWindow) {
-        iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*');
-      }
-    };
-    triggerPlay();
-    setTimeout(triggerPlay, 500);
-    setTimeout(triggerPlay, 1500);
-  };
+
 
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
 
@@ -124,20 +111,7 @@ const DuoSpaceShell: React.FC<{ user: User }> = ({ user }) => {
         )}
       </div>
 
-      {/* MOBILE AUDIO UNLOCK OVERLAY */}
-      {!hasUnlockedAudio && (
-        <div className="fixed inset-0 z-[500] bg-black/90 backdrop-blur-3xl flex flex-col items-center justify-center p-8 text-center">
-          <div className="w-24 h-24 mb-8 text-6xl animate-bounce">📻</div>
-          <h2 className="text-xl font-black uppercase tracking-[0.3em] mb-4 text-white">Station Ready</h2>
-          <p className="text-[10px] opacity-40 uppercase mb-10 max-w-[200px] leading-relaxed text-white">Mobile browsers require a touch to unlock the shared audio signal.</p>
-          <button
-            onClick={handleAudioUnlock}
-            className="px-12 py-5 bg-white text-black font-black uppercase text-xs rounded-full shadow-[0_0_30px_rgba(255,255,255,0.3)] active:scale-95 transition-all"
-          >
-            Join Audio Link
-          </button>
-        </div>
-      )}
+
 
       {/* COMPACT HEADER */}
       <header className={`shrink-0 h-14 px-4 border-b-2 ${theme.borderColor} flex items-center justify-between z-[100] bg-inherit backdrop-blur-xl shadow-sm`}>
